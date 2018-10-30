@@ -1,10 +1,9 @@
-#import sqlalchemy stuff
+#imports
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
-
-#import flask
+from datetime import datetime, timedelta
 from flask import Flask, jsonify
 
 ############################################################
@@ -56,13 +55,39 @@ def precipitation():
 @app.route('/api/v1.0/stations')
 def stations():
     #query and count number of stations
-    station_count = session.query(Station.station).all()
+    station_id = session.query(Station.station).all()
 
-    return jsonify(station_count)
+    return jsonify(station_id)
 
-# @app.route('api/v1.0/tobs')
-# def temp():
-#     return "Joe"
+@app.route('/api/v1.0/tobs')
+def temp():
+    #query to get most active station
+    active = session.query(Measurement.station, func.count(Measurement.station)).\
+            group_by(Measurement.station).order_by(func.count(Measurement.station).desc())
+    #get station of highest observations
+    highest = list(active[0])
+    high_obs = highest[0]
+
+    #query to get last date with data
+    results = session.query(Measurement.date).\
+            order_by(Measurement.date.desc())
+    
+    # #get max date
+    # max_date = results['date'].max()
+    # #get year month day of max
+    # max_datetime = datetime.strptime(max_date, '%Y-%m-%d')
+    # # subtract one year
+    # one_year = max_datetime - timedelta(days=365)
+    # #collect year month day of one year previous to max
+    # one_year = datetime.strftime(one_year, '%Y-%m-%d')
+
+    #query for last 12 months of data given
+    temp_data = session.query(Measurement.date, Measurement.tobs).\
+                    filter(Measurement.date > '2016-08-23').\
+                    filter(Measurement.station == high_obs).\
+                    order_by(Measurement.date).all()
+
+    return jsonify(temp_data)
 
 if __name__ == '__main__':
     app.run(debug=True)
