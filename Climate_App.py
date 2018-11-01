@@ -68,22 +68,24 @@ def temp():
     highest = list(active[0])
     high_obs = highest[0]
 
-    # #query to get last date with data
-    # results = session.query(Measurement.date).\
-    #         order_by(Measurement.date.desc())
+    #query to get last date with data
+    results = session.query(Measurement.date).\
+            order_by(Measurement.date.desc())
+
+    #get max date
+    max_date = list(results[0])
+    max_date = max_date[0]
     
-    # #get max date
-    # max_date = results.first()
-    # #get year month day of max
-    # max_datetime = datetime.strptime(max_date, '%Y-%m-%d')
-    # # subtract one year
-    # one_year = max_datetime - timedelta(days=365)
-    # #collect year month day of one year previous to max
-    # one_year = datetime.strftime(one_year, '%Y-%m-%d')
+    #get year month day of max
+    max_datetime = datetime.strptime(max_date, '%Y-%m-%d')
+    # subtract one year
+    one_year = max_datetime - timedelta(days=365)
+    #collect year month day of one year previous to max
+    one_year = datetime.strftime(one_year, '%Y-%m-%d')
 
     #query for last 12 months of data given
     temp_data = session.query(Measurement.date, Measurement.tobs).\
-                    filter(Measurement.date > '2016-08-23').\
+                    filter(Measurement.date > one_year).\
                     filter(Measurement.station == high_obs).\
                     order_by(Measurement.date).all()
 
@@ -91,38 +93,45 @@ def temp():
 @app.route('/api/v1.0/<start>')
 def calc_temp(start):
 
-    if start in Measurement.date:
     #convert start to datetime
-    # start = datetime.strptime(start, '%Y-%m-%d').date()
+    start = datetime.strptime(start, '%Y-%m-%d').date()
 
-        #query to get all temp data
-        temp_data = session.query(Measurement.date, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
-                    filter(Measurement.date >= start)
-
-    # for temp in temp_data:
-    #     # search_date = temp[0]
-
-    #     if temp == start:
-        return jsonify(temp)
+    #query to get temp data from start to end of data
+    temp_data = session.query(Measurement.date, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+                group_by(Measurement.date).filter(Measurement.date >= start).all()
     
+    #check length of temp data
+    if len(temp_data) != 0:
+
+        #if there is data return it
+        return jsonify(temp_data)
+    
+    #if there is no data send error
     else:
         return jsonify({'error': f'Start date {start} not found.'}), 404
 
 @app.route('/api/v1.0/<start>/<end>')
 def range_temp(start, end):
 
-    if start in Measurement.date and end in Measurement.date:
+    #convert start to datetime
+    start = datetime.strptime(start, '%Y-%m-%d').date()
 
-        #query to get temps in range
-        range_data = session.query(Measurement.date, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
-                    filter(Measurement.date >= start).filter(Measurement.date <= end)
-    
-        return jsonify(range_data)
-    
+    #convert end to datetime
+    end = datetime.strptime(end, '%Y-%m-%d').date()
+
+    #query to get temp data between two dates
+    temp_data_between = session.query(Measurement.date, func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+                group_by(Measurement.date).filter(Measurement.date >= start).filter(Measurement.date <= end).all()
+
+    #check length of temp data
+    if len(temp_data_between) != 0:
+
+        #if there is data return it
+        return jsonify(temp_data_between)
+
+    #if there is no data send error
     else:
-        return jsonify({'error': f'Start date {start} and/or end date {end} not found.'}), 404
-
-
+        return jsonify({'error': f'Start date {start} not found.'}), 404
 
 if __name__ == '__main__':
     app.run(debug=True)
